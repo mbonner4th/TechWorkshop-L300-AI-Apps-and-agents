@@ -1,0 +1,42 @@
+name: Update Customer Loyalty Agent
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/infra/agents/customer-loyalty.json'
+      - 'src/prompts/CustomerLoyaltyAgentPrompt.txt'
+  workflow_dispatch:
+
+jobs:
+  deploy-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2.1.1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Prepare agent definition
+        id: definition
+        run: |
+          jq \
+            --arg gpt_deployment "${{ secrets.GPT_DEPLOYMENT }}" \
+            --rawfile instructions src/prompts/CustomerLoyaltyAgentPrompt.txt \
+            '.definition.model = $gpt_deployment | .definition.instructions = $instructions' \
+            src/infra/agents/customer-loyalty.json > /tmp/agent-definition.json
+          echo "definition=$(cat /tmp/agent-definition.json | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Deploy agent version to Foundry
+        run: |
+          az rest \
+            --method POST \
+            --url "${{ secrets.FOUNDRY_ENDPOINT }}/agents/customer-loyalty/versions?api-version=2025-11-15-preview" \
+            --resource "https://ai.azure.com" \
+            --headers "Content-Type=application/json" \
+            --body '${{ steps.definition.outputs.definition }}'
