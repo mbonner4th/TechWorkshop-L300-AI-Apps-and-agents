@@ -34,9 +34,9 @@ jobs:
 
       - name: Deploy agent version to Foundry
         run: |
-          az rest \
+          cat /tmp/agent-definition.json | az rest \
             --method POST \
             --url "${{ secrets.FOUNDRY_ENDPOINT }}/agents/cora/versions?api-version=2025-11-15-preview" \
             --resource "https://ai.azure.com" \
             --headers "Content-Type=application/json" \
-            --body '${{ steps.definition.outputs.definition }}'
+            --body @-
